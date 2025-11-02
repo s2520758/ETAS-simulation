@@ -1,57 +1,46 @@
-# Bayesian ETAS Simulation — R Markdown Project (Knit Result)
+# Bayesian ETAS Simulation — R Markdown (Knitted PDF)
 
-This repository hosts a knitted **R Markdown** (Rmd) report with figures embedded in the PDF. It demonstrates a Bayesian ETAS (Epidemic-Type Aftershock Sequence) simulation and model fitting workflow.
+Knitted **R Markdown** report with embedded figures. Demonstrates a Bayesian Epidemic-Type Aftershock Sequence (ETAS) simulation and model-fitting workflow implemented with `ETAS.inlabru`.
 
-## 1) What’s included
-- `code.pdf` — the knitted report (Rmd output) with code and figures
-- `README.md` — this file
-- *(Optional)* `report/ETAS_simulation.Rmd` — the source Rmd if available
-- *(Optional)* `figures/` — exported figures if you choose to save them as images
+## 1) Contents
+- `code.pdf` — knitted Rmd output containing code and figures  
+- `README.md` — project overview and reproduction guide  
+- `report/zaigai.Rmd` — R Markdown source file  
 
-## 2) Project goal
-Simulate temporal earthquake catalogs, group by the count of high-magnitude events (≥ 5.0), visualize patterns, and fit Bayesian ETAS models with `ETAS.inlabru`.
+## 2) Objective
+Simulate temporal earthquake catalogs, classify catalogs by the count of high-magnitude events (≥ 5.0), visualize dynamic behavior, and fit Bayesian ETAS models using `ETAS.inlabru`.
 
-## 3) Data/Simulation summary
-- True parameters: μ = 0.1, K = 0.089, α = 2.29, c = 0.11, p = 1.08
-- Time window: T ∈ [0, 1000], multiple synthetic catalogs
-- Grouping by # of high-magnitude events: 0, 1–2, 3–4, 5+
+## 3) Simulation Summary
+- True parameters: μ = 0.1, K = 0.089, α = 2.29, c = 0.11, p = 1.08  
+- Time window: T ∈ [0, 1000]  
+- Grouping by number of high-magnitude events: 0, 1–2, 3–4, 5 +
 
-## 4) How to reproduce (when Rmd is available)
-If you add the Rmd later, install dependencies and render:
+## 4) Reproduction
+Install dependencies and render the R Markdown file:  
 ```r
 install.packages(c("rmarkdown","ETAS.inlabru","ggplot2","gridExtra","dplyr","future"))
-rmarkdown::render("report/ETAS_simulation.Rmd", output_format = "pdf_document")
+rmarkdown::render("report/zaigai.Rmd", output_format = "pdf_document")
 ```
 
-### knitr options to keep figures
-In your Rmd setup chunk you can force figures to save into `figures/`:
+### knitr figure settings
+Persistent figure path defined in the setup chunk:  
 ```r
 knitr::opts_chunk$set(fig.path = "figures/", dpi = 300, fig.width = 7, fig.height = 4.5)
 ```
 
-## 5) How to use this repo now (PDF-only)
-You can publish the PDF as primary artifact and add screenshots to the README:
-```markdown
-📄 Full report (PDF): [code.pdf](./code.pdf)
-```
-*(Optional)* Export a few key figures from the PDF into `figures/` and embed:
-```markdown
-![Magnitude vs Time](./figures/mag_vs_time_sample1.png)
-![Cumulative events](./figures/cum_events_sample1.png)
-```
-
-## 6) Suggested structure
+## 5) Repository Structure
 ```
 ETAS-simulation/
 ├─ report/
-│  └─ ETAS_simulation.Rmd        # add later if available
-├─ figures/                      # saved by knitr when fig.path is set
-├─ code.pdf                      # knitted output you have now
+│  └─ zaigai.Rmd
+├─ figures/
+├─ code.pdf
 ├─ .gitignore
 └─ README.md
 ```
 
-## 7) References
-- Gómez & Ogata (2021). Bayesian modeling of the temporal evolution of seismicity using ETAS.inlabru.
-- INLA Project: https://www.r-inla.org
-- ETAS.inlabru: https://inlabru-org.github.io/ETAS.inlabru/
+## 6) References
+- Gómez & Ogata (2021). Bayesian modeling of the temporal evolution of seismicity using ETAS.inlabru.  
+- INLA Project https://www.r-inla.org  
+- ETAS.inlabru https://inlabru-org.github.io/ETAS.inlabru/
+
