@@ -1,4 +1,4 @@
-# Bayesian ETAS Simulation — R Markdown (Knitted PDF)
+## Bayesian ETAS Simulation — R Markdown (Knitted PDF)
 
 Knitted **R Markdown** report with embedded figures. Demonstrates a Bayesian Epidemic-Type Aftershock Sequence (ETAS) simulation and model-fitting workflow implemented with `ETAS.inlabru`.
 
