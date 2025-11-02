@@ -1,0 +1,1829 @@
+---
+title: "Untitled"
+output:
+  pdf_document:
+    latex_engine: xelatex 
+date: "2024-06-18"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+ rm(list = ls(all = TRUE))
+```
+
+```{r,message=FALSE,warning=FALSE }
+
+#install.packages("dplyr") 
+library(ETAS.inlabru)
+library(ggplot2)
+#install.packages("dplyr") 
+library(dplyr)  
+
+# Increase/decrease num.cores if you have more/fewer cores on your computer.
+# future::multisession works on both Windows, MacOS, and Linux
+num.cores <- 2
+future::plan(future::multisession, workers = num.cores)
+INLA::inla.setOption(num.threads = num.cores)
+# To deactivate parallelism, run
+#   future::plan(future::sequential)
+#   INLA::inla.setOption(num.threads = 1)
+```
+
+#How high-magnitude events affect the distribution of alpha
+#Firstly, classify into 4 groups based on the number of high-magnitude events
+```{r}
+# Set seeds to ensure repeatability of results
+set.seed(1)
+# set true ETAS parameters
+#The selection of parameters refers to：
+#Bayesian modeling of the temporal evolution of seismicity
+
+ #using the ETAS.inlabru package
+true.param <- list(mu = 0.1, K = 0.089, alpha = 2.29, c = 0.11, p = 1.08)
+# set magnitude distribution parameter
+beta.p <- 2.35
+M0=2.5
+# set starting time of the synthetic catalogue
+T1 <- 0
+# set end time of the synthetic catalogue
+T2 <- 1000
+
+# Set the number of catalogues
+n_catalogues <-1000
+
+# Set the threshold for earthquakes
+M_threshold <- 5.0
+
+# Initialize seismic event grouping
+groups <- list(
+  "No high magnitude events" = list(),
+  "1-2 high magnitude events" = list(),
+  "3-4 high magnitude events" = list(),
+  "5+ high magnitude events" = list()
+)
+
+# Generate each catalogue in a loop
+for (i in 1:n_catalogues) {
+  # generate temporal catalogue
+  synth_catalogue <- generate_temporal_ETAS_synthetic(
+    theta = true.param, beta = beta.p, M0 = M0, T1 = T1, T2 = T2, Ht = NULL
+  )
+  
+  # bind
+  ETAS.cat <- bind_rows(synth_catalogue) %>%
+    arrange(ts)
+  
+  # Calculate the number of earthquakes greater than the threshold
+  n_major_events <- sum(ETAS.cat$magnitudes >= M_threshold)
+  
+  # Classification of earthquake catalogs 
+  if (n_major_events == 0 && length(groups[["No high magnitude events"]])<3) {
+    groups[["No high magnitude events"]] <- 
+      c(groups[["No high magnitude events"]], list(ETAS.cat))
+  } else if (n_major_events >=1 && n_major_events <= 2 && 
+             length(groups[["1-2 high magnitude events"]])< 3)
+    {
+    groups[["1-2 high magnitude events"]] <-
+      c(groups[["1-2 high magnitude events"]], list(ETAS.cat))
+  } else if (n_major_events >= 3 && n_major_events <= 4 && 
+             length(groups[["3-4 high magnitude events"]])< 3)
+    {
+    groups[["3-4 high magnitude events"]] <-
+      c(groups[["3-4 high magnitude events"]], list(ETAS.cat))
+  } else if(n_major_events >=5  && 
+            length(groups[["5+ high magnitude events"]])<3) {
+    groups[["5+ high magnitude events"]] <- 
+      c(groups[["5+ high magnitude events"]], list(ETAS.cat))
+  }
+  if(length(groups[["No high magnitude events"]])>=3 && 
+     length(groups[["1-2 high magnitude events"]])>= 3 &&
+     length(groups[["3-4 high magnitude events"]])>=3 && 
+     length(groups[["5+ high magnitude events"]])>= 3){
+  break
+}
+}
+  
+```
+
+```{r}
+#check 
+sapply(groups, length)
+```
+#Form scatter and line charts separately by group
+```{r}
+library(ggplot2)
+library(gridExtra)
+
+group_name <-"No high magnitude events"
+first_group <- groups[[group_name]]
+#Prepare a list to save all graphics
+all_plots <-list()
+#loop each sequence in the first group and draw graphs separately
+for(i in seq_along(first_group)){
+  catalogue <-first_group[[i]]
+#Create a scatter plot of time magnitude
+  pl1 <-ggplot(catalogue, aes(ts, magnitudes, color = as.factor(gen)))+
+  geom_point()+
+  labs(color = "gen")+
+  ggtitle(
+    paste(
+      "Scatter Plot of Time vs Magnitude for No high magnitude events - Sample",
+      i))
+  t.breaks <- T1:T2
+  N.cumsum<-vapply(t.breaks,\(x) sum(catalogue$ts<x),0)
+  df.to.cumsum.plot <-data.frame(ts =t.breaks, N.cum = N.cumsum)
+  pl2<-ggplot(df.to.cumsum.plot,aes(ts,N.cum))+
+  geom_line() +
+  ylab("cumulative number of events")+
+  ggtitle(
+    paste(
+      "Cumulative Number of Events for No high magnitude events - Sample", i))
+  combined_plot<-grid.arrange(pl1,pl2,nrow=1)
+  all_plots[[i]]<- pl1
+}
+grid.arrange(grobs=all_plots,nco1=2)
+```
+
+
+
+
+
+```{r}
+
+group_name <-"1-2 high magnitude events"
+second_group <- groups[[group_name]]
+#Prepare a list to save all graphics
+all_plots <-list()
+#Traverse each sequence in the first group and draw graphs separately
+for(i in seq_along(second_group)){
+  catalogue <-second_group[[i]]
+#Create a scatter plot of time magnitude
+  pl1 <-ggplot(catalogue, aes(ts, magnitudes, color = as.factor(gen)))+
+  geom_point()+
+  labs(color = "gen")+
+  ggtitle(
+    paste(
+      "Scatter Plot of Time vs Magnitude for 1-2 high magnitude events - Sample"
+      , i))
+  t.breaks <- T1:T2
+  N.cumsum<-vapply(t.breaks,\(x) sum(catalogue$ts<x),0)
+  df.to.cumsum.plot <-data.frame(ts =t.breaks, N.cum = N.cumsum)
+  pl2<-ggplot(df.to.cumsum.plot,aes(ts,N.cum))+
+  geom_line() +
+  ylab("cumulative number of events")+
+  ggtitle(
+    paste("Cumulative Number of Events for 1-2 high magnitude events - Sample", 
+          i))
+  combined_plot<-grid.arrange(pl1,pl2,nrow=1)
+  all_plots[[i]]<- pl1
+}
+grid.arrange(grobs=all_plots,nco1=2)
+```
+```{r}
+
+group_name <-"3-4 high magnitude events"
+third_group <- groups[[group_name]]
+#Prepare a list to save all graphics
+all_plots <-list()
+#Traverse each sequence in the group and draw graphs separately
+for(i in seq_along(third_group)){
+  catalogue <-third_group[[i]]
+#Create a scatter plot of time magnitude
+  pl1 <-ggplot(catalogue, aes(ts, magnitudes, color = as.factor(gen)))+
+  geom_point()+
+  labs(color = "gen")+
+  ggtitle(
+    paste(
+      "Scatter Plot of Time vs Magnitude for 3-4 high magnitude events -Sample",
+      i))
+  t.breaks <- T1:T2
+  N.cumsum<-vapply(t.breaks,\(x) sum(catalogue$ts<x),0)
+  df.to.cumsum.plot <-data.frame(ts =t.breaks, N.cum = N.cumsum)
+  pl2<-ggplot(df.to.cumsum.plot,aes(ts,N.cum))+
+  geom_line() +
+  ylab("cumulative number of events")+
+  ggtitle(
+    paste("Cumulative Number of Events for 3-4 high magnitude events - Sample",
+          i))
+  
+  combined_plot<-grid.arrange(pl1,pl2,nrow=1)
+  all_plots[[i]]<- pl1
+}
+grid.arrange(grobs=all_plots,nco1=2)
+```
+
+```{r}
+
+group_name <-"5+ high magnitude events"
+fourth_group <- groups[[group_name]]
+#Prepare a list to save all graphics
+all_plots <-list()
+#Traverse each sequence in the  group and draw graphs separately
+for(i in seq_along(fourth_group)){
+  catalogue <-fourth_group[[i]]
+#Create a scatter plot of time magnitude
+  pl1 <-ggplot(catalogue, aes(ts, magnitudes, color = as.factor(gen)))+
+  geom_point()+
+  labs(color = "gen")+
+  ggtitle(paste(
+    "Scatter Plot of Time vs Magnitude for 5+ high magnitude events - Sample"
+                , i))
+  
+  t.breaks <- T1:T2
+  N.cumsum<-vapply(t.breaks,\(x) sum(catalogue$ts<x),0)
+  df.to.cumsum.plot <-data.frame(ts =t.breaks, N.cum = N.cumsum)
+  pl2<-ggplot(df.to.cumsum.plot,aes(ts,N.cum))+
+  geom_line() +
+  ylab("cumulative number of events")+
+  ggtitle(paste(
+    "Cumulative Number of Events for 5+ high magnitude events - Sample", i))
+  
+  combined_plot<-grid.arrange(pl1,pl2,nrow=1)
+  all_plots[[i]]<- pl1
+}
+grid.arrange(grobs=all_plots,nco1=2)
+```
+#Fit models to generate posterior distribution
+```{r}
+# Define a universal prior distribution
+link.f <- list(
+  mu = \(x) gamma_t(x, 0.3, 0.6),
+  K = \(x) unif_t(x, 0, 10),
+  alpha = \(x) unif_t(x, 0, 5),
+  c_ = \(x) unif_t(x, 0, 10),
+  p = \(x) unif_t(x, 1, 10)
+)
+
+inv.link.f <- list(
+  mu = \(x) inv_gamma_t(x, 0.3, 0.6),
+  K = \(x) inv_unif_t(x, 0, 10),
+  alpha = \(x) inv_unif_t(x, 0, 5),
+  c_ = \(x) inv_unif_t(x, 0, 10),
+  p = \(x) inv_unif_t(x, 1, 10)
+)
+```
+```{r}
+# set up list of initial values
+th.init <- list(
+  th.mu = inv.link.f$mu(0.5),
+  th.K = inv.link.f$K(0.1),
+  th.alpha = inv.link.f$alpha(1),
+  th.c = inv.link.f$c_(0.1),
+  th.p = inv.link.f$p(1.1)
+)
+```
+```{r}
+# set up list of bru options
+bru.opt.list <- list(
+  bru_verbose = 3, # type of visual output
+  bru_max_iter = 70, # maximum number of iterations
+  # bru_method = list(max_step = 0.5),
+  bru_initial = th.init
+) # parameters initial values
+```
+
+```{r}
+library(ggplot2)
+library(gridExtra)  
+
+# select data
+group_no_major_events <- groups[["No high magnitude events"]]
+
+# fit model
+synth_fit1 <- Temporal.ETAS(
+  total.data = group_no_major_events[[1]],
+  M0 = M0,
+  T1 = T1,
+  T2 = T2,
+  link.functions = link.f,
+  coef.t = 1,
+  delta.t = 0.1,
+  N.max = 5,
+  bru.opt = bru.opt.list
+)
+
+synth_fit2 <- Temporal.ETAS(
+  total.data = group_no_major_events[[2]],
+  M0 = M0,
+  T1 = T1,
+  T2 = T2,
+  link.functions = link.f,
+  coef.t = 1,
+  delta.t = 0.1,
+  N.max = 5,
+  bru.opt = bru.opt.list
+)
+
+synth_fit3 <- Temporal.ETAS(
+  total.data = group_no_major_events[[3]],
+  M0 = M0,
+  T1 = T1,
+  T2 = T2,
+  link.functions = link.f,
+  coef.t = 1,
+  delta.t = 0.1,
+  N.max = 5,
+  bru.opt = bru.opt.list
+)
+
+# Obtain posterior distribution
+post_list1 <- get_posterior_param(input.list = list(model.fit = synth_fit1, link.functions = link.f))
+post_list2 <- get_posterior_param(input.list = list(model.fit = synth_fit2, link.functions = link.f))
+post_list3 <- get_posterior_param(input.list = list(model.fit = synth_fit3, link.functions = link.f))
+
+# Set data classification identifiers
+post_list1$post.df$cat.used <- "No high magnitude events - 1"
+post_list2$post.df$cat.used <- "No high magnitude events - 2"
+post_list3$post.df$cat.used <- "No high magnitude events - 3"
+
+# Bind all posterior distribution data 
+bind_post_df <- rbind(post_list1$post.df, post_list2$post.df, post_list3$post.df)
+
+# Filter out alpha data for analysis
+alpha_data <- bind_post_df[bind_post_df$param == "alpha", ]
+
+# Draw graphics using ggplot
+ggplot(alpha_data, aes(x = x, y = y, color = cat.used)) +
+  geom_line() +
+  facet_wrap(~param, scales = "free") +
+  xlab("Parameter value") +
+  ylab("Probability density function") +
+  geom_vline(data = data.frame(x = true.param$alpha), aes(xintercept = x), linetype = 2) +
+  theme_bw()
+
+```
+
+```{r}
+library(ggplot2)
+library(gridExtra)  
+
+# select data
+group_1_2_major_events <- groups[["1-2 high magnitude events"]]
+
+# Fitting the model for the datasets in the "1-2 high magnitude events" group
+synth_fit1_12 <- Temporal.ETAS(
+  total.data = group_1_2_major_events[[1]],
+  M0 = M0,
+  T1 = T1,
+  T2 = T2,
+  link.functions = link.f,
+  coef.t = 1,
+  delta.t = 0.1,
+  N.max = 5,
+  bru.opt = bru.opt.list
+)
+
+synth_fit2_12 <- Temporal.ETAS(
+  total.data = group_1_2_major_events[[2]],
+  M0 = M0,
+  T1 = T1,
+  T2 = T2,
+  link.functions = link.f,
+  coef.t = 1,
+  delta.t = 0.1,
+  N.max = 5,
+  bru.opt = bru.opt.list
+)
+
+synth_fit3_12 <- Temporal.ETAS(
+  total.data = group_1_2_major_events[[3]],
+  M0 = M0,
+  T1 = T1,
+  T2 = T2,
+  link.functions = link.f,
+  coef.t = 1,
+  delta.t = 0.1,
+  N.max = 5,
+  bru.opt = bru.opt.list
+)
+
+# Obtain posterior distribution
+post_list1_12 <- 
+  get_posterior_param(input.list = list(model.fit = synth_fit1_12, 
+                                        link.functions = link.f))
+post_list2_12 <- 
+  get_posterior_param(input.list = list(model.fit = synth_fit2_12,
+                                        link.functions = link.f))
+post_list3_12 <- 
+  get_posterior_param(input.list = list(model.fit = synth_fit3_12, 
+                                        link.functions = link.f))
+
+# Set data classification identifiers
+post_list1_12$post.df$cat.used <- "1-2 high magnitude events - 1"
+post_list2_12$post.df$cat.used <- "1-2 high magnitude events - 2"
+post_list3_12$post.df$cat.used <- "1-2 high magnitude events - 3"
+
+# Bind all posterior distribution data 
+bind_post_df_12 <- rbind(post_list1_12$post.df, post_list2_12$post.df, 
+                         post_list3_12$post.df)
+
+# Filter out alpha data 
+alpha_data_12 <- bind_post_df_12[bind_post_df_12$param == "alpha", ]
+
+# Draw graphics using ggplot
+ggplot(alpha_data_12, aes(x = x, y = y, color = cat.used)) +
+  geom_line() +
+  facet_wrap(~param, scales = "free") +
+  xlab("Parameter value") +
+  ylab("Probability density function") +
+  geom_vline(data = data.frame(x = true.param$alpha),
+             aes(xintercept = x), linetype = 2) +
+  theme_bw()
+
+```
+```{r}
+# Load necessary libraries
+library(ggplot2)
+
+# Setting group name and retrieving the data for "3-4 high magnitude events"
+group_3_4_major_events <- groups[["3-4 high magnitude events"]]
+
+# Fitting the model for the datasets in the "3-4 high magnitude events" group
+synth.fit1_3_4 <- Temporal.ETAS(
+  total.data = group_3_4_major_events[[1]],
+  M0 = M0,
+  T1 = T1,
+  T2 = T2,
+  link.functions = link.f,
+  coef.t = 1,
+  delta.t = 0.1,
+  N.max = 5,
+  bru.opt = bru.opt.list
+)
+
+input_list1_3_4 <- list(
+  model.fit = synth.fit1_3_4,
+  link.functions = link.f
+)
+
+synth.fit2_3_4 <- Temporal.ETAS(
+  total.data = group_3_4_major_events[[2]],
+  M0 = M0,
+  T1 = T1,
+  T2 = T2,
+  link.functions = link.f,
+  coef.t = 1,
+  delta.t = 0.1,
+  N.max = 5,
+  bru.opt = bru.opt.list
+)
+
+input_list2_3_4 <- list(
+  model.fit = synth.fit2_3_4,
+  link.functions = link.f
+)
+
+synth.fit3_3_4 <- Temporal.ETAS(
+  total.data = group_3_4_major_events[[3]],
+  M0 = M0,
+  T1 = T1,
+  T2 = T2,
+  link.functions = link.f,
+  coef.t = 1,
+  delta.t = 0.1,
+  N.max = 5,
+  bru.opt = bru.opt.list
+)
+
+input_list3_3_4 <- list(
+  model.fit = synth.fit3_3_4,
+  link.functions = link.f
+)
+
+# Getting posterior parameters for each model
+post.list1_3_4 <- get_posterior_param(input_list1_3_4)
+post.list2_3_4 <- get_posterior_param(input_list2_3_4)
+post.list3_3_4 <- get_posterior_param(input_list3_3_4)
+
+# Setting data category identifiers
+post.list1_3_4$post.df$cat.used <- "3-4 high magnitude events 1"
+post.list2_3_4$post.df$cat.used <- "3-4 high magnitude events 2"
+post.list3_3_4$post.df$cat.used <- "3-4 high magnitude events 3"
+
+# Binding all posterior distribution data frames
+bind.post.df_3_4 <- rbind(post.list1_3_4$post.df, post.list2_3_4$post.df, 
+                          post.list3_3_4$post.df)
+
+# Selecting alpha data for analysis
+alpha_data_3_4 <- bind.post.df_3_4[bind.post.df_3_4$param == "alpha", ]
+
+# Creating a dashed line data frame
+vline_data_3_4 <- data.frame(x = true.param$alpha)
+
+# Using ggplot to create the plot
+ggplot(alpha_data_3_4, aes(x = x, y = y, color = cat.used)) +
+  geom_line() +
+  facet_wrap(~param, scales = "free") +
+  xlab("Parameter value") +
+  ylab("Probability density function") +
+  geom_vline(data = vline_data_3_4, aes(xintercept = x), linetype = 2)+
+  theme_bw()
+```
+```{r}
+# Load necessary libraries
+library(ggplot2)
+
+# Setting the group name and retrieving the data for "5+ high magnitude events"
+group_5_plus_major_events <- groups[["5+ high magnitude events"]]
+
+# Fitting the model for the first dataset in the "5+ high magnitude events"group
+synth.fit1_5_plus <- Temporal.ETAS(
+  total.data = group_5_plus_major_events[[1]],
+  M0 = M0,
+  T1 = T1,
+  T2 = T2,
+  link.functions = link.f,
+  coef.t = 1,
+  delta.t = 0.1,
+  N.max = 5,
+  bru.opt = bru.opt.list
+)
+
+input_list1_5_plus <- list(
+  model.fit = synth.fit1_5_plus,
+  link.functions = link.f
+)
+
+# Repeat the process for the second dataset in the "5+ high magnitude events"
+#group
+synth.fit2_5_plus <- Temporal.ETAS(
+  total.data = group_5_plus_major_events[[2]],
+  M0 = M0,
+  T1 = T1,
+  T2 = T2,
+  link.functions = link.f,
+  coef.t = 1,
+  delta.t = 0.1,
+  N.max = 5,
+  bru.opt = bru.opt.list
+)
+
+input_list2_5_plus <- list(
+  model.fit = synth.fit2_5_plus,
+  link.functions = link.f
+)
+
+# And for the third dataset
+synth.fit3_5_plus <- Temporal.ETAS(
+  total.data = group_5_plus_major_events[[3]],
+  M0 = M0,
+  T1 = T1,
+  T2 = T2,
+  link.functions = link.f,
+  coef.t = 1,
+  delta.t = 0.1,
+  N.max = 5,
+  bru.opt = bru.opt.list
+)
+
+input_list3_5_plus <- list(
+  model.fit = synth.fit3_5_plus,
+  link.functions = link.f
+)
+
+# Extracting posterior parameters for each model
+post.list1_5_plus <- get_posterior_param(input_list1_5_plus)
+post.list2_5_plus <- get_posterior_param(input_list2_5_plus)
+post.list3_5_plus <- get_posterior_param(input_list3_5_plus)
+
+# Setting data category identifiers
+post.list1_5_plus$post.df$cat.used <- "5+ high magnitude events 1"
+post.list2_5_plus$post.df$cat.used <- "5+ high magnitude events 2"
+post.list3_5_plus$post.df$cat.used <- "5+ high magnitude events 3"
+
+# Binding  posterior distribution 
+bind.post.df_5_plus <- rbind(post.list1_5_plus$post.df, 
+                             post.list2_5_plus$post.df, 
+                             post.list3_5_plus$post.df)
+
+# Selecting alpha 
+alpha_data_5_plus <- bind.post.df_5_plus[bind.post.df_5_plus$param == "alpha", ]
+
+# Creating a dashed line 
+vline_data_5_plus <- data.frame(x = true.param$alpha)
+
+# Using ggplot to create the plot
+ggplot(alpha_data_5_plus, aes(x = x, y = y, color = cat.used)) +
+  geom_line() +
+  facet_wrap(~param, scales = "free") +
+  xlab("Parameter value") +
+  ylab("Probability density function") +
+  geom_vline(data = vline_data_5_plus, aes(xintercept = x), linetype = 2) +
+  theme_bw()
+
+```
+
+#Exploring whether the highest magnitude affects the alpha posterior 
+#distribution
+
+#First classify according to the highest magnitude, then fit the model,
+#and finally compare the posterior distribution.
+```{r}
+
+# Initialize group
+groups2 <- list(
+  "5_to_5.5" = list(),
+  "5.5_to_6" = list(),
+  "6_plus" = list()
+)
+
+# Generate each earthquake catalogue in a loop until metting all  criteria 
+while (length(groups2[["5_to_5.5"]]) < 2 || length(groups2[["5.5_to_6"]]) < 2 || 
+       length(groups2[["6_plus"]]) < 2) {
+  # Generate temporary catalogue
+  synth_catalogue <- generate_temporal_ETAS_synthetic(
+    theta = true.param, beta = beta.p, M0 = M0, T1 = T1, T2 = T2, Ht = NULL
+  )
+  
+  # bind catalogues
+  ETAS.cat <- bind_rows(synth_catalogue) %>%
+    arrange(ts)
+  
+  # Calculate the number of earthquakes greater than the threshold
+  n_major_events <- sum(ETAS.cat$magnitudes >= M_threshold)
+  max_mag <- max(ETAS.cat$magnitudes)
+
+  # Classification of earthquake categories 
+  if (n_major_events == 5) {
+    if (max_mag >= 5.0 && max_mag < 5.5 && length(groups2[["5_to_5.5"]]) < 2) {
+      groups2[["5_to_5.5"]] <- c(groups2[["5_to_5.5"]], list(ETAS.cat))
+    } else if (max_mag >= 5.5 && max_mag < 6.0 && 
+               length(groups2[["5.5_to_6"]]) < 2) {
+      groups2[["5.5_to_6"]] <- c(groups2[["5.5_to_6"]], list(ETAS.cat))
+    } else if (max_mag >= 6.0 && length(groups2[["6_plus"]]) < 2) {
+      groups2[["6_plus"]] <- c(groups2[["6_plus"]], list(ETAS.cat))
+    }
+  }
+}
+
+# check information
+sapply(groups, length)
+sapply(groups2, length)
+
+
+```
+#plot alpha
+```{r}
+library(ggplot2)
+set.seed(1)
+# Define a function for the model to merge and draw plots for each group
+fit_and_plot_group <- function(group_data, group_name) {
+  post_df_list <- list()  # Store posterior data 
+
+  # Loop through each catalogue for fitting and posterior extraction
+  for (i in seq_along(group_data)) {
+    synth.fit <- Temporal.ETAS(
+      total.data = group_data[[i]],
+      M0 = M0,
+      T1 = T1,
+      T2 = T2,
+      link.functions = link.f,
+      coef.t = 1,
+      delta.t = 0.1,
+      N.max = 5,
+      bru.opt = bru.opt.list
+    )
+
+    # creat input list
+    input_list <- list(
+      model.fit = synth.fit,
+      link.functions = link.f
+    )
+
+    # get posterior
+    post_list <- get_posterior_param(input_list)
+    post_list$post.df$cat.used <- paste("Cat", i)  #Mark classification
+
+    # save posterior data
+    post_df_list[[i]] <- post_list$post.df
+  }
+
+  # bind posterior data
+
+bind.post.df <- do.call(rbind, post_df_list)
+
+  # plot
+  alpha_data <- bind.post.df[bind.post.df$param == "alpha", ]
+  p <- ggplot(alpha_data, aes(x = x, y = y, color = cat.used)) +
+    geom_line() +
+    facet_wrap(~param, scales = "free") +
+    xlab("Parameter value") +
+    ylab("Probability density function") +
+    geom_vline(data = data.frame(x = true.param$alpha), 
+               aes(xintercept = x), linetype = 2) +
+    ggtitle(paste("Posterior Distribution of Alpha for", group_name)) +
+    #theme_minimal()
+    theme_bw()
+
+  return(p)
+}
+
+# Loop  each group name, fit the model and generate a graph
+group_names <- c("5_to_5.5", "5.5_to_6", "6_plus")
+all_plots <- lapply(group_names, function(gn) fit_and_plot_group(groups2[[gn]], 
+                                                                 gn))
+
+# view results
+lapply(all_plots, print)
+
+
+```
+
+#Classified by the number of highest magnitudes,
+
+#Then, among the same number of high magnitude earthquakes, 
+
+#sort them by the value of the highest magnitude,
+
+#Then fit the model and compare the posterior distribution.
+```{r}
+set.seed(1)
+# Initialize new group for n_major_events == 0, 3, and 5
+new_group <- list(
+  "0 high magnitude events" = list(),
+  "3 high magnitude events" = list(),
+  "5 high magnitude events" = list()
+)
+
+# Generate each catalogue in a loop for new_group
+for (i in 1:n_catalogues) {
+  # Generate temporal catalogue
+  synth_catalogue <- generate_temporal_ETAS_synthetic(
+    theta = true.param, beta = beta.p, M0 = M0, T1 = T1, T2 = T2, Ht = NULL
+  )
+  
+  # Bind catalogues
+  ETAS.cat <- bind_rows(synth_catalogue) %>%
+    arrange(ts)
+  
+  # Calculate the number of earthquakes greater than the threshold
+  n_major_events <- sum(ETAS.cat$magnitudes >= M_threshold)
+  
+  # Add to new group for 0, 1, 3, and 5 high magnitude events
+  if (n_major_events == 0 &&
+      length(new_group[["0 high magnitude events"]]) < 3) {
+    new_group[["0 high magnitude events"]] <-
+      c(new_group[["0 high magnitude events"]], 
+                                       list(ETAS.cat))
+  } else if (n_major_events == 3 && 
+             length(new_group[["3 high magnitude events"]]) < 3) {
+    new_group[["3 high magnitude events"]] <- 
+      c(new_group[["3 high magnitude events"]],
+                                       list(ETAS.cat))
+  } else if (n_major_events == 5 && 
+             length(new_group[["5 high magnitude events"]]) < 3) {
+    new_group[["5 high magnitude events"]] <- 
+      c(new_group[["5 high magnitude events"]], 
+                                       list(ETAS.cat))
+  }
+  
+  if (length(new_group[["0 high magnitude events"]]) >= 3 && 
+      length(new_group[["3 high magnitude events"]]) >= 3 && 
+      length(new_group[["5 high magnitude events"]]) >= 3) {
+    break
+  }
+}
+
+# Check the length of each group
+sapply(new_group, length)
+
+```
+#Plot alpha
+```{r}
+library(dplyr)
+library(ggplot2)
+library(gridExtra)
+
+set.seed(1)  # Ensure reproducibility
+
+# Function to process catalogs based on high magnitude event threshold
+process_catalogs <- function(event_threshold, event_label) {
+  # Filter catalogs
+  filtered_catalogs <-
+    Filter(function(cat) sum(cat$magnitudes >= M_threshold) == event_threshold,
+                              new_group[[event_label]])
+  
+  # Randomly select three catalogs
+  sampled_catalogs <- sample(filtered_catalogs, 3)
+  
+  # Determine the maximum magnitude for each catalog
+  catalogs_with_max_mag <- lapply(sampled_catalogs, function(cat) {
+    data.frame(catalog = I(list(cat)), max_mag = max(cat$magnitudes))
+  })
+  
+  # Convert the list to a data frame and sort by max_mag
+  sorted_catalogs <- do.call(rbind, catalogs_with_max_mag) %>%
+    arrange(max_mag) %>%
+    `$`('catalog')
+  
+  # Define labels based on sorted order
+  labels <- c("Lowest Max Mag", "Middle Max Mag", "Highest Max Mag")
+  
+  # Model fitting and posterior extraction
+  post_df_list <- lapply(seq_along(sorted_catalogs), function(i) {
+    cat_data <- sorted_catalogs[[i]]
+    synth.fit <- Temporal.ETAS(
+      total.data = cat_data,
+      M0 = M0,
+      T1 = T1,
+      T2 = T2,
+      link.functions = link.f,
+      coef.t = 1,
+      delta.t = 0.1,
+      N.max = 5,
+      bru.opt = bru.opt.list
+    )
+    
+    post_list <- 
+      get_posterior_param(list(model.fit = synth.fit, link.functions = link.f))
+    post_list$post.df$cat.used <- labels[i]
+    post_list$post.df
+  })
+  
+  # Combine all posterior distributions
+  bind_post_df <- do.call(rbind, post_df_list)
+  
+  # Filter for alpha data and analyze
+  alpha_data <- bind_post_df[bind_post_df$param == "alpha", ]
+  
+  # Plot using ggplot
+  p <- ggplot(alpha_data, aes(x = x, y = y, color = cat.used)) +
+    geom_line() +
+    facet_wrap(~param, scales = "free") +
+    xlab("Parameter value") +
+    ylab("Probability density function") +
+    geom_vline(data = data.frame(x = true.param$alpha), aes(xintercept = x),
+               linetype = 2) +
+    ggtitle(paste("α Posterior Distribution for", event_label)) +
+    theme_bw()
+  
+  return(p)
+}
+
+# List of events to process
+event_list <- list("0 high magnitude events" = 0, 
+                   "3 high magnitude events" = 3, "5 high magnitude events" = 5)
+
+# Apply the function to each event type and store plots
+plot_list <- lapply(names(event_list),
+                    function(label) process_catalogs(event_list[[label]],
+                                                     label))
+# Example calculation for a suitable number of columns
+
+num_plots <- length(plot_list)
+num_columns <- ifelse(num_plots <= 2, num_plots, 2) 
+# Adjust '2' to change max columns
+
+grid.arrange(grobs = plot_list, ncol = num_columns)
+```
+#Exploring the posterior distribution changes of parameters
+#under different settings and the relationships between parameters
+
+#First,fixed no parameter
+
+```{r}
+
+# set up list of bru options
+bru.opt.list <- list(
+  bru_verbose = 3,  # type of visual output
+  bru_max_iter = 70,  # maximum number of iterations
+  bru_initial = th.init  # parameters initial values
+)
+
+# Fit the model with all parameters
+all_params.fit <- Temporal.ETAS(
+  total.data = group_3_4_major_events[[1]],
+  M0 = M0,
+  T1 = T1,
+  T2 = T2,
+  link.functions = link.f,
+  coef.t. = 1,
+  delta.t. = 0.1,
+  N.max. = 5,
+  bru.opt = bru.opt.list
+)
+# obtain posterior
+all_params.post <- get_posterior_param(input.list = list(
+  model.fit = all_params.fit,
+  link.functions = link.f
+))
+all_params.post$post.df$cat.used <- "No Fixed parameters"
+```
+```{r}
+df.true.param <- data.frame(
+  x = unlist(true.param),
+  param = names(true.param)
+)
+```
+
+#Fixed K
+```{r}
+# Adjust priors to fix K parameter close to its true value
+fixed_K_link_functions <- list(
+  mu = \(x) gamma_t(x, 0.3, 0.6),
+  K = \(x) gamma_t(x,true.param$K*10000, 10000),
+  alpha = \(x) unif_t(x, 0, 5),
+  c_ = \(x) unif_t(x, 0, 10),
+  p = \(x) unif_t(x, 1, 10)
+)
+
+# Inverse transformations list for fixed priors
+fixed_K_inv_link_functions <- list(
+  mu = \(x) inv_gamma_t(x, 0.3, 0.6),
+  K = \(x) inv_gamma_t(x, true.param$K*10000, 10000),
+  alpha = \(x) inv_unif_t(x, 0, 5),
+  c_ = \(x) inv_unif_t(x, 0, 10),
+  p = \(x) inv_unif_t(x, 1, 10)
+)
+
+# Initial values for the fixed K parameters model
+fixed_K_initial_values <- list(
+  th.mu = fixed_K_inv_link_functions$mu(0.5),
+  th.K = true.param$K,
+  th.alpha = fixed_K_inv_link_functions$alpha(1),
+  th.c = fixed_K_inv_link_functions$c_(0.1),
+  th.p = fixed_K_inv_link_functions$p(1.1)
+)
+
+# Set up list of bru options
+
+bru_opt_list_fixed_K <- list(
+  bru_verbose = 3,  
+  bru_max_iter = 70,
+  bru_initial = fixed_K_initial_values
+)
+
+
+# Fit the model with fixed K parameter
+fixed_K_params_fit <- Temporal.ETAS(
+  total.data = group_3_4_major_events[[1]],
+  M0 = M0,
+  T1 = T1,
+  T2 = T2,
+  link.functions = fixed_K_link_functions,
+  coef.t. = 1,
+  delta.t. = 0.1,
+  N.max. = 5,
+  bru.opt = bru_opt_list_fixed_K  
+)
+
+# Obtain posterior distribution
+
+fixed_K_params_post <- get_posterior_param(input.list = list(
+  model.fit = fixed_K_params_fit,
+  link.functions = fixed_K_link_functions
+))
+
+# Set model identifiers for drawing
+
+fixed_K_params_post$post.df$cat.used <- "Fixed K on the true value"
+```
+#Wrong K
+```{r}
+# Adjust priors to wrong K parameter 
+wrong_K_link_functions <- list(
+  mu = \(x) gamma_t(x, 0.3, 0.6),
+  K = \(x) gamma_t(x,1.5*true.param$K*10000, 10000),
+  alpha = \(x) unif_t(x, 0, 5),
+  c_ = \(x) unif_t(x, 0, 10),
+  p = \(x) unif_t(x, 1, 10)
+)
+
+# Inverse transformations list for wrong priors
+wrong_K_inv_link_functions <- list(
+  mu = \(x) inv_gamma_t(x, 0.3, 0.6),
+  K = \(x) inv_gamma_t(x, 1.5*true.param$K*10000, 10000),
+  alpha = \(x) inv_unif_t(x, 0, 5),
+  c_ = \(x) inv_unif_t(x, 0, 10),
+  p = \(x) inv_unif_t(x, 1, 10)
+)
+
+# Initial values for the wrong K parameters model
+wrong_K_initial_values <- list(
+  th.mu = wrong_K_inv_link_functions$mu(0.5),
+  th.K = 1.5*true.param$K,
+  th.alpha = wrong_K_inv_link_functions$alpha(1),
+  th.c = wrong_K_inv_link_functions$c_(0.1),
+  th.p = wrong_K_inv_link_functions$p(1.1)
+)
+
+
+
+bru_opt_list_wrong_K <- list(
+  bru_verbose = 3, 
+  bru_max_iter = 70,
+  bru_initial = wrong_K_initial_values
+)
+
+
+# Fit the model with wrong K parameter
+wrong_K_params_fit <- Temporal.ETAS(
+  total.data = group_3_4_major_events[[1]],
+  M0 = M0,
+  T1 = T1,
+  T2 = T2,
+  link.functions = wrong_K_link_functions,
+  coef.t. = 1,
+  delta.t. = 0.1,
+  N.max. = 5,
+  bru.opt = bru_opt_list_wrong_K  
+)
+
+#Obtain posterior distribution
+wrong_K_params_post <- get_posterior_param(input.list = list(
+  model.fit = wrong_K_params_fit,
+  link.functions = wrong_K_link_functions
+))
+
+# Set model identifiers for drawing
+
+wrong_K_params_post$post.df$cat.used <- "Wrong K"
+```
+```{r}
+# Merge posterior distribution data frames for plotting
+bind_post_df <- rbind(all_params.post$post.df, fixed_K_params_post$post.df,
+                      wrong_K_params_post$post.df)
+```
+
+#Plot
+```{r}
+library(ggplot2)
+#plot Posterior density distributions for All Params, Fixed K, and Wrong K
+
+ggplot(bind_post_df, aes(x = x, color = cat.used)) +  
+  geom_density(alpha = 0.5, fill = NA) +  # Set the filling  transparent
+  facet_wrap(~param, scales = "free") + 
+  xlab("Parameter Value") +  # X-axis label
+  ylab("Density") +  # Y-axis label
+  geom_vline(data = df.true.param, aes(xintercept = x), linetype = "dashed",
+             color = "black") +  # add true value
+  theme_minimal() +  
+  labs(
+    title = "Posterior Density Distribution without Fixed Parameters, Fixed K,
+    and Incorrect K",
+    color = "Parameter Type",  
+    linetype = "Line Type"  
+  ) +
+  theme_bw() + 
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),  
+    legend.position = "bottom",  
+    plot.title = element_text(size = 12, hjust = 0.5)  
+  )
+
+
+```
+
+
+#Check
+```{r}
+# Kolmogorov-Smirnov
+#ks_test <- ks.test(all_params.post$post.df$x, fixed_K_params_post$post.df$x)
+
+# print p value
+#print(ks_test$p.value)#
+
+
+```
+#Fixed mu
+```{r}
+# Adjust priors to specifically fix parameter 'mu' close to its true value
+link.f_fixed_mu <- list(
+  mu = \(x) gamma_t(x, true.param$mu * 10000, 10000),
+  K = \(x) unif_t(x, 0, 10),
+  alpha = \(x) unif_t(x, 0, 5),
+  c_ = \(x) unif_t(x, 0, 10),
+  p = \(x) unif_t(x, 1, 10)
+)
+
+# Inverse transformations list specifically for the fixed 'mu' scenario
+inv_link.f_fixed_mu <- list(
+  mu = \(x) inv_gamma_t(x, true.param$mu * 10000, 10000),
+  K = \(x) inv_unif_t(x, 0, 10),
+  alpha = \(x) inv_unif_t(x, 0, 5),
+  c_ = \(x) inv_unif_t(x, 0, 10),
+  p = \(x) inv_unif_t(x, 1, 10)
+)
+
+# Initial values specifically adjusted for the fixed 'mu' scenario
+init_values_fixed_mu <- list(
+  th.mu = true.param$mu,  # Setting directly to true value
+  th.K = inv_link.f_fixed_mu$K(0.1),
+  th.alpha = inv_link.f_fixed_mu$alpha(1),
+  th.c = inv_link.f_fixed_mu$c_(0.1),
+  th.p = inv_link.f_fixed_mu$p(1.1)
+)
+
+# Optimization options specifically set for the fixed 'mu' scenario
+opt_list_fixed_mu <- list(
+  bru_verbose = 3,  
+  bru_max_iter = 70,
+  bru_initial = init_values_fixed_mu
+)
+
+# Fit the model with 'mu' fixed
+fixed_mu_fit <- Temporal.ETAS(
+  total.data = group_3_4_major_events[[1]],
+  M0 = M0,
+  T1 = T1,
+  T2 = T2,
+  link.functions = link.f_fixed_mu,
+  coef.t. = 1,
+  delta.t. = 0.1,
+  N.max. = 5,
+  bru.opt = opt_list_fixed_mu  
+)
+
+# Retrieve posterior distributions specifically for the fixed 'mu' scenario
+posterior_fixed_mu <- get_posterior_param(input.list = list(
+  model.fit = fixed_mu_fit,
+  link.functions = link.f_fixed_mu
+))
+
+# Set model identifier specifically mentioning 'Fixed mu' for plotting
+posterior_fixed_mu$post.df$cat.used <- "Fixed mu on the true value"
+
+
+```
+#wrong mu 
+```{r}
+# Adjust priors to specifically wrong parameter 'mu'
+link.f_wrong_mu <- list(
+  mu = \(x) gamma_t(x, 1.5*true.param$mu * 10000, 10000),
+  K = \(x) unif_t(x, 0, 10),
+  alpha = \(x) unif_t(x, 0, 5),
+  c_ = \(x) unif_t(x, 0, 10),
+  p = \(x) unif_t(x, 1, 10)
+)
+
+# Inverse transformations list specifically for the wrong 'mu' scenario
+inv_link.f_wrong_mu <- list(
+  mu = \(x) inv_gamma_t(x, 1.5*true.param$mu * 10000, 10000),
+  K = \(x) inv_unif_t(x, 0, 10),
+  alpha = \(x) inv_unif_t(x, 0, 5),
+  c_ = \(x) inv_unif_t(x, 0, 10),
+  p = \(x) inv_unif_t(x, 1, 10)
+)
+
+# Initial values specifically adjusted for the wrong 'mu' scenario
+init_values_wrong_mu <- list(
+  th.mu = 1.5*true.param$mu,  # Setting directly to true value
+  th.K = inv_link.f_wrong_mu$K(0.1),
+  th.alpha = inv_link.f_wrong_mu$alpha(1),
+  th.c = inv_link.f_wrong_mu$c_(0.1),
+  th.p = inv_link.f_wrong_mu$p(1.1)
+)
+
+# Optimization options specifically set for the wrong 'mu' scenario
+opt_list_wrong_mu <- list(
+  bru_verbose = 3,  
+  bru_max_iter = 70,
+  bru_initial = init_values_wrong_mu
+)
+
+# Fit the model with 'mu' wrong
+wrong_mu_fit <- Temporal.ETAS(
+  total.data =group_3_4_major_events[[1]],
+  M0 = M0,
+  T1 = T1,
+  T2 = T2,
+  link.functions = link.f_wrong_mu,
+  coef.t. = 1,
+  delta.t. = 0.1,
+  N.max. = 5,
+  bru.opt = opt_list_wrong_mu  
+)
+
+# Retrieve posterior distributions specifically for the wrong 'mu' scenario
+posterior_wrong_mu <- get_posterior_param(input.list = list(
+  model.fit = wrong_mu_fit,
+  link.functions = link.f_wrong_mu
+))
+
+# Set model identifier specifically mentioning 'wrong mu' for plotting
+posterior_wrong_mu$post.df$cat.used <- "wrong mu"
+```
+
+#plot
+
+```{r}
+# Merge posterior distribution data frames for plotting
+bind_post_df <- rbind(all_params.post$post.df, posterior_fixed_mu$post.df,
+                      posterior_wrong_mu$post.df)
+```
+```{r}
+# Plot the posterior density distributions
+ggplot(bind_post_df, aes(x = x, color = cat.used)) +
+  geom_density(alpha = 0.5, fill = NA) +  
+  facet_wrap(~param, scales = "free") +  
+  xlab("Parameter Value") + 
+  ylab("Density") +  
+  geom_vline(data = df.true.param, aes(xintercept = x), linetype = "dashed", 
+             color = "black") + 
+  theme_minimal() +   
+  labs(
+    title = "Posterior Density Distribution without Fixed Parameters, Fixed mu,
+    and Incorrect mu",
+    color = "Parameter Type",  
+    linetype = "Line Type"  
+  ) +
+  theme_bw() + 
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),  
+    legend.position = "bottom", 
+    plot.title = element_text(size = 12, hjust = 0.5)  
+  )
+
+
+```
+
+#check
+```{r}
+# ks test
+#ks_test <- ks.test(all_params.post$post.df$x, posterior_fixed_mu$post.df$x)
+
+# p value
+#print(ks_test$p.value)
+
+```
+#fixed alpha
+```{r}
+# Adjust priors to specifically fix parameter 'alpha' close to its true value
+link.f_fixed_alpha <- list(
+  mu = \(x) gamma_t(x, 0.3, 0.6),
+  K = \(x) unif_t(x, 0, 10),
+  alpha = \(x) gamma_t(x, true.param$alpha * 10000, 10000),
+  c_ = \(x) unif_t(x, 0, 10),
+  p = \(x) unif_t(x, 1, 10)
+)
+
+# Inverse transformations list specifically for the fixed 'alpha' scenario
+inv_link.f_fixed_alpha <- list(
+  mu = \(x) inv_gamma_t(x, 0.3, 0.6),
+  K = \(x) inv_unif_t(x, 0, 10),
+  alpha = \(x) inv_gamma_t(x, true.param$alpha * 10000, 10000),
+  c_ = \(x) inv_unif_t(x, 0, 10),
+  p = \(x) inv_unif_t(x, 1, 10)
+)
+
+# Initial values specifically adjusted for the fixed 'alpha' scenario
+init_values_fixed_alpha <- list(
+  th.mu = inv_link.f_fixed_alpha$mu(0.5),
+  th.K = inv_link.f_fixed_alpha$K(0.1),
+  th.alpha = true.param$alpha,  # Setting directly to true value
+  th.c = inv_link.f_fixed_alpha$c_(0.1),
+  th.p = inv_link.f_fixed_alpha$p(1.1)
+)
+
+# Optimization options specifically set for the fixed 'alpha' scenario
+opt_list_fixed_alpha <- list(
+  bru_verbose = 3,
+  bru_max_iter = 70,
+  bru_initial = init_values_fixed_alpha
+)
+
+# Fit the model with 'alpha' fixed
+fixed_alpha_fit <- Temporal.ETAS(
+  total.data =group_3_4_major_events[[1]],
+  M0 = M0,
+  T1 = T1,
+  T2 = T2,
+  link.functions = link.f_fixed_alpha,
+  coef.t. = 1,
+  delta.t. = 0.1,
+  N.max. = 5,
+  bru.opt = opt_list_fixed_alpha
+)
+
+# Retrieve posterior distributions specifically for the fixed 'alpha' scenario
+posterior_fixed_alpha <- get_posterior_param(input.list = list(
+  model.fit = fixed_alpha_fit,
+  link.functions = link.f_fixed_alpha
+))
+
+# Set model identifier specifically mentioning 'Fixed alpha' for plotting
+posterior_fixed_alpha$post.df$cat.used <- "Fixed alpha on the true value"
+```
+#wrong alpha 
+```{r}
+# Adjust priors to specifically wrong parameter 'alpha' 
+link.f_wrong_alpha <- list(
+  mu = \(x) gamma_t(x, 0.3, 0.6),
+  K = \(x) unif_t(x, 0, 10),
+  alpha = \(x) gamma_t(x, 1.5*true.param$alpha * 10000, 10000),
+  c_ = \(x) unif_t(x, 0, 10),
+  p = \(x) unif_t(x, 1, 10)
+)
+
+# Inverse transformations list specifically for the wrong 'alpha' scenario
+inv_link.f_wrong_alpha <- list(
+  mu = \(x) inv_gamma_t(x, 0.3, 0.6),
+  K = \(x) inv_unif_t(x, 0, 10),
+  alpha = \(x) inv_gamma_t(x, 1.5*true.param$alpha * 10000, 10000),
+  c_ = \(x) inv_unif_t(x, 0, 10),
+  p = \(x) inv_unif_t(x, 1, 10)
+)
+
+# Initial values specifically adjusted for the wrong 'alpha' scenario
+init_values_wrong_alpha <- list(
+  th.mu = inv_link.f_wrong_alpha$mu(0.5),
+  th.K = inv_link.f_wrong_alpha$K(0.1),
+  th.alpha = 1.5*true.param$alpha,  # Setting directly to true value
+  th.c = inv_link.f_wrong_alpha$c_(0.1),
+  th.p = inv_link.f_wrong_alpha$p(1.1)
+)
+
+# Optimization options specifically set for the wrong 'alpha' scenario
+opt_list_wrong_alpha <- list(
+  bru_verbose = 3,
+  bru_max_iter = 70,
+  bru_initial = init_values_wrong_alpha
+)
+
+# Fit the model with 'alpha' wrong
+wrong_alpha_fit <- Temporal.ETAS(
+  total.data = group_3_4_major_events[[1]],
+  M0 = M0,
+  T1 = T1,
+  T2 = T2,
+  link.functions = link.f_wrong_alpha,
+  coef.t. = 1,
+  delta.t. = 0.1,
+  N.max. = 5,
+  bru.opt = opt_list_wrong_alpha
+)
+
+# Retrieve posterior distributions specifically for the wrong 'alpha' scenario
+posterior_wrong_alpha <- get_posterior_param(input.list = list(
+  model.fit = wrong_alpha_fit,
+  link.functions = link.f_wrong_alpha
+))
+
+# Set model identifier specifically mentioning 'wrong alpha' for plotting
+posterior_wrong_alpha$post.df$cat.used <- "wrong alpha"
+
+```
+
+#plot
+```{r}
+# Merge posterior distribution data frames for plotting
+bind_post_df <- rbind(all_params.post$post.df, posterior_fixed_alpha$post.df,
+                      posterior_wrong_alpha$post.df)
+
+# Plot the posterior density distributions
+ggplot(bind_post_df, aes(x = x, color = cat.used)) + 
+  geom_density(alpha = 0.5, fill = NA) +  
+  facet_wrap(~param, scales = "free") +  
+  xlab("Parameter Value") +  
+  ylab("Density") +  
+  geom_vline(data = df.true.param, aes(xintercept = x), linetype = "dashed",
+             color = "black") + 
+  theme_minimal() +  
+  labs(
+    title = "Posterior Density Distribution without Fixed Parameters, 
+    Fixed alpha, and Incorrect alpha",
+    color = "Parameter Type", 
+    linetype = "Line Type" 
+  ) +
+  theme_bw() +  
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),  
+    ##Rotate the X-axis text 45 degrees and adjust alignment
+    legend.position = "bottom",  # Set legend position
+    plot.title = element_text(size = 12, hjust = 0.5)  # set title position
+  )
+
+
+```
+#check
+```{r}
+# ks test
+#ks_test <- ks.test(all_params.post$post.df$x, posterior_fixed_alpha$post.df$x)
+
+# p value
+#print(ks_test$p.value)
+```
+#fix c
+```{r}
+
+# Adjust priors to fix some parameters close to their true values
+fixed.link.f <- list(
+  mu = \(x) gamma_t(x, 0.3, 0.6),
+  K = \(x)  unif_t(x, 0, 10),
+  alpha = \(x) unif_t(x, 0, 5) ,
+  c_ = \(x) gamma_t(x, true.param$c*5000,5000),
+  p = \(x) unif_t(x, 1, 10)
+)
+
+# Inverse transformations list for fixed priors
+inv.fixed.link.f <- list(
+  mu = \(x) inv_gamma_t(x, 0.3, 0.6),
+  K = \(x) inv_unif_t(x, 0, 10),
+  alpha = \(x) inv_unif_t(x, 0, 5),
+  c_ = \(x) inv_gamma_t(x, true.param$c*5000, 5000),
+  p = \(x) inv_unif_t(x, 1, 10)
+)
+
+# Initial values for the fixed parameters model
+fixed.th.init <- list(
+  th.mu = inv.fixed.link.f$mu(0.5),
+  th.K = inv.fixed.link.f$K(0.1),
+  th.alpha = inv.fixed.link.f$alpha(1),
+  th.c = true.param$c,
+  th.p = inv.fixed.link.f$p(1.1)
+)
+
+
+
+
+bru.opt.list.fix <- list(
+  bru_verbose = 3,  
+  bru_max_iter = 70,
+  bru_initial = fixed.th.init
+)
+
+# Fit the model with some fixed parameters
+fixed_params.fit <- Temporal.ETAS(
+  total.data =group_3_4_major_events[[1]],
+  M0 = M0,
+  T1 = T1,
+  T2 = T2,
+  link.functions = fixed.link.f,
+  coef.t. = 1,
+  delta.t. = 0.1,
+  N.max. = 5,
+  bru.opt = bru.opt.list.fix  
+)
+
+
+fixed_params.post <- get_posterior_param(input.list = list(
+  model.fit = fixed_params.fit,
+  link.functions = fixed.link.f
+))
+
+# Set model identifiers for plot
+
+fixed_params.post$post.df$cat.used <- "Fixed c on the true value"
+
+
+```
+#wrong c
+```{r}
+# Adjust transformations for wrong c
+wrong_c_link.f <- list(
+  mu = \(x) gamma_t(x, 0.3, 0.6),
+  K = \(x) unif_t(x, 0, 10),
+  alpha = \(x) unif_t(x, 0, 5),
+  c_ = \(x) gamma_t(x, 1.5 * true.param$c * 5000, 5000),  
+  # Intentionally wrong by setting it to half its true value
+  p = \(x) unif_t(x, 1, 10)
+)
+
+# Inverse transformations for wrong c
+inv_wrong_c_link.f <- list(
+  mu = \(x) inv_gamma_t(x, 0.3, 0.6),
+  K = \(x) inv_unif_t(x, 0, 10),
+  alpha = \(x) inv_unif_t(x, 0, 5),
+  c_ = \(x) inv_gamma_t(x,1.5 * true.param$c * 5000, 5000), 
+  # Corresponding inverse transformation
+  p = \(x) inv_unif_t(x, 1, 10)
+)
+
+# Initial values for the wrong c model
+wrong_c_th.init <- list(
+  th.mu = inv_wrong_c_link.f$mu(0.5),
+  th.K = inv_wrong_c_link.f$K(0.1),
+  th.alpha = inv_wrong_c_link.f$alpha(1),
+  th.c = 1.5 * true.param$c,  # Using the wrong initial value for c
+  th.p = inv_wrong_c_link.f$p(1.1)
+)
+
+bru.opt.list.wrong.c <- list(
+  bru_verbose = 3,  # Increase debug info
+  bru_max_iter = 70,
+  bru_initial = wrong_c_th.init
+)
+
+# Fit the model with wrong c parameter
+wrong_c_params.fit <- Temporal.ETAS(
+  total.data =group_3_4_major_events[[1]],
+  M0 = M0,
+  T1 = T1,
+  T2 = T2,
+  link.functions = wrong_c_link.f,
+  coef.t. = 1,
+  delta.t. = 0.1,
+  N.max. = 5,
+  bru.opt = bru.opt.list.wrong.c  
+)
+
+# Get the posterior distribution
+wrong_c_params.post <- get_posterior_param(input.list = list(
+  model.fit = wrong_c_params.fit,
+  link.functions = wrong_c_link.f
+))
+
+# Set the model identifier for plotting
+wrong_c_params.post$post.df$cat.used <- "Wrong c"
+
+
+
+```
+
+#Plot
+```{r}
+
+
+# bind posterior data
+bind.post.df <- rbind(all_params.post$post.df, fixed_params.post$post.df,
+                      wrong_c_params.post$post.df)
+
+# Plot the posterior density distributions
+ggplot(bind.post.df, aes(x = x, color = cat.used)) +  
+  geom_density(alpha = 0.5, fill = NA) + 
+  facet_wrap(~param, scales = "free") +  
+  xlab("Parameter Value") +  
+  ylab("Density") +  
+  geom_vline(data = df.true.param, aes(xintercept = x), linetype = "dashed",
+             color = "black") +  
+  theme_minimal() + 
+  labs(
+    title = "Posterior Density Distribution without Fixed Parameters, Fixed c, 
+    and Incorrect c",
+    color = "Parameter Type",  
+    linetype = "Line Type" 
+  ) +
+  theme_bw() +  
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1), 
+    legend.position = "bottom",  
+    plot.title = element_text(size = 12, hjust = 0.5)  
+  )
+
+
+```
+
+#check
+```{r}
+# ks test
+#ks_test <- ks.test(all_params.post$post.df$x, fixed_params.post$post.df$x)
+
+# p value
+#print(ks_test$p.value)
+
+```
+
+#fixed p
+
+```{r}
+
+
+# Adjust priors to specifically fix parameter 'p' close to its true value
+link.f_fixed_p <- list(
+  mu = \(x) gamma_t(x, 0.3, 0.6),
+  K = \(x) unif_t(x, 0, 10),
+  alpha = \(x) unif_t(x, 0, 5),
+  c_ = \(x) unif_t(x, 0, 10),
+  p = \(x) gamma_t(x, true.param$p * 10000, 10000)
+)
+
+# Inverse transformations list specifically for the fixed 'p' scenario
+inv_link.f_fixed_p <- list(
+  mu = \(x) inv_gamma_t(x, 0.3, 0.6),
+  K = \(x) inv_unif_t(x, 0, 10),
+  alpha = \(x) inv_unif_t(x, 0, 5),
+  c_ = \(x) inv_unif_t(x, 0, 10),
+  p = \(x) inv_gamma_t(x, true.param$p * 10000, 10000)
+)
+
+# Initial values specifically adjusted for the fixed 'p' scenario
+init_values_fixed_p <- list(
+  th.mu = inv_link.f_fixed_p$mu(0.5),
+  th.K = inv_link.f_fixed_p$K(0.1),
+  th.alpha = inv_link.f_fixed_p$alpha(1),
+  th.c = inv_link.f_fixed_p$c_(0.1),
+  th.p = true.param$p  # Setting directly to true value
+)
+
+# Optimization options specifically set for the fixed 'p' scenario
+opt_list_fixed_p <- list(
+  bru_verbose = 3,
+  bru_max_iter = 70,
+  bru_initial = init_values_fixed_p
+)
+
+# Fit the model with 'p' fixed
+fixed_p_fit <- Temporal.ETAS(
+  total.data = group_3_4_major_events[[1]],
+  M0 = M0,
+  T1 = T1,
+  T2 = T2,
+  link.functions = link.f_fixed_p,
+  coef.t. = 1,
+  delta.t. = 0.1,
+  N.max. = 5,
+  bru.opt = opt_list_fixed_p
+)
+
+# Retrieve posterior distributions specifically for the fixed 'p' scenario
+posterior_fixed_p <- get_posterior_param(input.list = list(
+  model.fit = fixed_p_fit,
+  link.functions = link.f_fixed_p
+))
+
+# Set model identifier specifically mentioning 'Fixed p' for plotting
+posterior_fixed_p$post.df$cat.used <- "Fixed p on the true value"
+
+
+
+
+```
+#wrong p
+```{r}
+# Adjust priors to specifically fix parameter 'p' close to its true value
+link.f_wrong_p <- list(
+  mu = \(x) gamma_t(x, 0.3, 0.6),
+  K = \(x) unif_t(x, 0, 10),
+  alpha = \(x) unif_t(x, 0, 5),
+  c_ = \(x) unif_t(x, 0, 10),
+  p = \(x) gamma_t(x,1.5* true.param$p * 10000, 10000)
+)
+
+# Inverse transformations list specifically for the fixed 'p' scenario
+inv_link.f_wrong_p <- list(
+  mu = \(x) inv_gamma_t(x, 0.3, 0.6),
+  K = \(x) inv_unif_t(x, 0, 10),
+  alpha = \(x) inv_unif_t(x, 0, 5),
+  c_ = \(x) inv_unif_t(x, 0, 10),
+  p = \(x) inv_gamma_t(x, 1.5*true.param$p * 10000, 10000)
+)
+
+# Initial values specifically adjusted for the fixed 'p' scenario
+init_values_wrong_p <- list(
+  th.mu = inv_link.f_wrong_p$mu(0.5),
+  th.K = inv_link.f_wrong_p$K(0.1),
+  th.alpha = inv_link.f_wrong_p$alpha(1),
+  th.c = inv_link.f_wrong_p$c_(0.1),
+  th.p = 1.5*true.param$p  # Setting directly to true value
+)
+
+# Optimization options specifically set for the fixed 'p' scenario
+opt_list_wrong_p <- list(
+  bru_verbose = 3,
+  bru_max_iter = 70,
+  bru_initial = init_values_wrong_p
+)
+
+# Fit the model with 'p' wrong
+wrong_p_fit <- Temporal.ETAS(
+  total.data = group_3_4_major_events[[1]],
+  M0 = M0,
+  T1 = T1,
+  T2 = T2,
+  link.functions = link.f_wrong_p,
+  coef.t. = 1,
+  delta.t. = 0.1,
+  N.max. = 5,
+  bru.opt = opt_list_wrong_p
+)
+
+# Retrieve posterior distributions specifically for the wrong 'p' scenario
+posterior_wrong_p <- get_posterior_param(input.list = list(
+  model.fit = wrong_p_fit,
+  link.functions = link.f_wrong_p
+))
+
+# Set model identifier specifically mentioning 'wrong p' for plotting
+```
+#plot
+```{r}
+posterior_wrong_p$post.df$cat.used <- "wrong p"
+
+# Merge posterior distribution data frames for plotting
+bind_post_df <- rbind(all_params.post$post.df, posterior_fixed_p$post.df,
+                      posterior_wrong_p$post.df)
+
+# Plot the posterior density distributions
+ggplot(bind_post_df, aes(x = x, color = cat.used)) +  
+  geom_density(alpha = 0.5, fill = NA) +  
+  facet_wrap(~param, scales = "free") +  
+  xlab("Parameter Value") +  
+  ylab("Density") +  
+  geom_vline(data = df.true.param, aes(xintercept = x), linetype = "dashed", 
+             color = "black") + 
+  theme_minimal() +  
+  labs(
+    title = "Posterior Density Distribution without Fixed Parameters, Fixed p,
+    and Incorrect p",
+    color = "Parameter Type",  
+    linetype = "Line Type"  
+  ) +
+  theme_bw() +  
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1), 
+    legend.position = "bottom", 
+    plot.title = element_text(size = 12, hjust = 0.5)  
+  )
+
+```
+
+
+#validate the correlation of parameters through Pearson heatmap
+```{r}
+# set.seed
+set.seed(1)
+
+# set bru
+bru.opt.list <- list(
+  bru_verbose = 3, 
+  bru_max_iter = 70, 
+  bru_initial = th.init 
+)
+
+
+set.seed(1)
+
+# fit model
+all_params.fit <- Temporal.ETAS(
+  total.data = group_3_4_major_events[[1]],
+  M0 = M0,
+  T1 = T1,
+  T2 = T2,
+  link.functions = link.f,
+  coef.t. = 1,
+  delta.t. = 0.1,
+  N.max. = 5,
+  bru.opt = bru.opt.list
+)
+
+# set seed
+set.seed(1)
+
+# get posterior
+all_params.post <- get_posterior_param(input.list = list(
+  model.fit = all_params.fit,
+  link.functions = link.f
+))
+
+# set seed
+set.seed(1)
+
+#use link.f
+link.f <- list(
+  mu = \(x) gamma_t(x, 0.3, 0.6),
+  K = \(x) unif_t(x, 0, 10),
+  alpha = \(x) unif_t(x, 0, 5),
+  c_ = \(x) unif_t(x, 0, 10),
+  p = \(x) unif_t(x, 1, 10)
+)
+
+# set seed
+set.seed(1)
+
+# let  yb be the sample set
+yb <- post_sampling(
+  input.list = list(
+    model.fit = all_params.fit,
+    link.functions = link.f
+  ),
+  n.samp = 1000,
+  max.batch = 1000,
+  ncore = 1
+)
+
+# set seed
+set.seed(1)
+
+# calculate peason matrix
+pearson_matrix <- cor(yb, method = "pearson")
+
+# calculate spearman matrix
+#spearman_matrix <- cor(yb, method = "spearman")
+
+# load knitr
+library(knitr)
+# install lattice and load it
+if (!require("lattice")) install.packages("lattice", dependencies = TRUE)
+library(lattice)
+
+# calculate pearson matrix
+cor_matrix <- cor(yb[, c("K", "alpha", "c", "p","mu")], method = "pearson")
+
+#transform data
+cor_df <- expand.grid(Variable1 = colnames(cor_matrix), 
+                      Variable2 = colnames(cor_matrix))
+cor_df$Correlation <- as.vector(cor_matrix)
+```
+
+
+```{r}
+# plot heatmap by levelplot
+levelplot(Correlation ~ Variable1 * Variable2, data = cor_df,
+          scales = list(x = list(rot = 0)), 
+          col.regions = colorRampPalette(c("blue", "white", "red")),
+          main = "Heatmap of Pearson correlation coefficient matrix")
+
+```
